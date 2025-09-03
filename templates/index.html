@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Research-Grade Particle Physics Simulator</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --dark-gradient: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        --quantum-gradient: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
+        --success-gradient: linear-gradient(135deg, #48dbfb 0%, #0abde3 100%);
+        --glass-bg: rgba(255, 255, 255, 0.1);
+        --glass-border: rgba(255, 255, 255, 0.2);
+        --shadow-primary: 0 20px 40px rgba(102, 126, 234, 0.3);
+        --shadow-dark: 0 15px 35px rgba(0, 0, 0, 0.1);
+        --border-radius: 20px;
+        --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Inter", sans-serif;
+        background: radial-gradient(
+          ellipse at top,
+          #667eea 0%,
+          #764ba2 35%,
+          #2c3e50 100%
+        );
+        min-height: 100vh;
+        color: #333;
+        overflow-x: hidden;
+      }
+
+      /* Animated background particles */
+      body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="1" fill="white" opacity="0.3"><animate attributeName="opacity" dur="3s" values="0.3;1;0.3" repeatCount="indefinite"/></circle><circle cx="80" cy="40" r="1.5" fill="white" opacity="0.4"><animate attributeName="opacity" dur="4s" values="0.4;1;0.4" repeatCount="indefinite"/></circle><circle cx="40" cy="80" r="1" fill="white" opacity="0.2"><animate attributeName="opacity" dur="5s" values="0.2;0.8;0.2" repeatCount="indefinite"/></circle></svg>')
+          repeat;
+        pointer-events: none;
+        z-index: -1;
+        animation: float 20s infinite linear;
+      }
+
+      @keyframes float {
+        0% {
+          transform: translateY(0px);
+        }
+        100% {
+          transform: translateY(-100px);
+        }
+      }
+
+      .container {
+        max-width: 1600px;
+        margin: 40px auto;
+        padding: 0 20px;
+      }
+
+      .header {
+        background: var(--glass-bg);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--border-radius);
+        padding: 60px 40px;
+        text-align: center;
+        margin-bottom: 30px;
+        box-shadow: var(--shadow-primary);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .header::before {
+        content: "";
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: conic-gradient(
+          from 0deg,
+          transparent,
+          rgba(255, 255, 255, 0.1),
+          transparent
+        );
+        animation: rotate 10s linear infinite;
+      }
+
+      @keyframes rotate {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .header-content {
+        position: relative;
+        z-index: 2;
+      }
+
+      .header h1 {
+        font-size: clamp(2rem, 5vw, 4rem);
+        font-weight: 700;
+        background: linear-gradient(135deg, #fff 0%, #e0e6ff 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 20px;
+        text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+      }
+
+      .subtitle {
+        font-size: 1.3rem;
+        color: rgba(255, 255, 255, 0.8);
+        font-weight: 300;
+        letter-spacing: 0.5px;
+      }
+
+      .controls-container {
+        background: var(--glass-bg);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--border-radius);
+        padding: 40px;
+        margin-bottom: 30px;
+        box-shadow: var(--shadow-dark);
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 30px;
+        margin-bottom: 30px;
+      }
+
+      .control-group {
+        position: relative;
+      }
+
+      .control-group label {
+        display: block;
+        margin-bottom: 10px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .control-group input,
+      .control-group select {
+        width: 100%;
+        padding: 16px 20px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+        color: white;
+        font-size: 16px;
+        font-weight: 500;
+        transition: var(--transition);
+        backdrop-filter: blur(10px);
+      }
+
+      .control-group input::placeholder {
+        color: rgba(255, 255, 255, 0.5);
+      }
+
+      .control-group input:focus,
+      .control-group select:focus {
+        outline: none;
+        border-color: #667eea;
+        background: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+        transform: translateY(-2px);
+      }
+
+      .button-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        justify-content: center;
+        margin-top: 30px;
+      }
+
+      .btn {
+        background: var(--primary-gradient);
+        color: white;
+        border: none;
+        padding: 16px 32px;
+        border-radius: 50px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+        text-transform: uppercase;
+        min-width: 160px;
+      }
+
+      .btn::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.2),
+          transparent
+        );
+        transition: left 0.5s;
+      }
+
+      .btn:hover::before {
+        left: 100%;
+      }
+
+      .btn:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
+      }
+
+      .btn:active {
+        transform: translateY(-2px);
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .btn.success {
+        background: var(--success-gradient);
+      }
+
+      .btn.quantum {
+        background: var(--quantum-gradient);
+      }
+
+      .status {
+        padding: 20px 30px;
+        margin: 20px 0;
+        border-radius: 15px;
+        font-weight: 600;
+        border-left: 5px solid;
+        backdrop-filter: blur(10px);
+        animation: slideIn 0.5s ease-out;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .status.success {
+        background: rgba(72, 219, 251, 0.1);
+        color: #48dbfb;
+        border-color: #48dbfb;
+      }
+
+      .status.error {
+        background: rgba(255, 107, 107, 0.1);
+        color: #ff6b6b;
+        border-color: #ff6b6b;
+      }
+
+      .status.info {
+        background: rgba(254, 202, 87, 0.1);
+        color: #feca57;
+        border-color: #feca57;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 20px 0;
+        position: relative;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: var(--primary-gradient);
+        width: 0%;
+        transition: width 0.3s ease;
+        border-radius: 10px;
+        position: relative;
+      }
+
+      .progress-fill::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.4),
+          transparent
+        );
+        animation: shimmer 2s infinite;
+      }
+
+      @keyframes shimmer {
+        0% {
+          transform: translateX(-100%);
+        }
+        100% {
+          transform: translateX(100%);
+        }
+      }
+
+      .main-content {
+        background: var(--glass-bg);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        box-shadow: var(--shadow-dark);
+      }
+
+      .tabs {
+        display: flex;
+        background: rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        overflow-x: auto;
+      }
+
+      .tab {
+        padding: 20px 30px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: var(--transition);
+        color: rgba(255, 255, 255, 0.7);
+        font-weight: 600;
+        white-space: nowrap;
+        position: relative;
+      }
+
+      .tab:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .tab.active {
+        background: rgba(255, 255, 255, 0.1);
+        border-bottom-color: #667eea;
+        color: white;
+      }
+
+      .tab.active::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--primary-gradient);
+      }
+
+      .tab-content {
+        display: none;
+        padding: 40px;
+        color: rgba(255, 255, 255, 0.9);
+        line-height: 1.6;
+      }
+
+      .tab-content.active {
+        display: block;
+        animation: fadeIn 0.5s ease-out;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .plot-container {
+        margin: 30px 0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+      }
+
+      .plot-header {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 20px 30px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        font-weight: 600;
+        font-size: 1.2em;
+        color: white;
+        position: relative;
+      }
+
+      .plot-header::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        height: 2px;
+        width: 60px;
+        background: var(--primary-gradient);
+      }
+
+      .plot-content {
+        min-height: 600px;
+        padding: 30px;
+        position: relative;
+      }
+
+      .loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 18px;
+        color: rgba(255, 255, 255, 0.6);
+        text-align: center;
+      }
+
+      .quantum-info {
+        background: rgba(255, 107, 107, 0.1);
+        border: 1px solid rgba(255, 107, 107, 0.2);
+        padding: 30px;
+        border-radius: 15px;
+        margin: 30px 0;
+        backdrop-filter: blur(10px);
+      }
+
+      .quantum-info h3 {
+        margin-bottom: 15px;
+        color: #ff6b6b;
+        font-size: 1.5em;
+      }
+
+      .particle-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 25px;
+        margin: 30px 0;
+      }
+
+      .particle-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 25px;
+        backdrop-filter: blur(10px);
+        transition: var(--transition);
+      }
+
+      .particle-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(102, 126, 234, 0.2);
+        border-color: rgba(102, 126, 234, 0.3);
+      }
+
+      .particle-card h4 {
+        margin-bottom: 15px;
+        color: white;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 10px;
+        font-size: 1.3em;
+      }
+
+      .overview-list {
+        list-style: none;
+        padding: 0;
+      }
+
+      .overview-list li {
+        padding: 15px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        position: relative;
+        padding-left: 30px;
+      }
+
+      .overview-list li::before {
+        content: "⚡";
+        position: absolute;
+        left: 0;
+        color: #667eea;
+        font-size: 1.2em;
+      }
+
+      .overview-list li:last-child {
+        border-bottom: none;
+      }
+
+      /* Responsive Design */
+      @media (max-width: 768px) {
+        .container {
+          margin: 20px auto;
+          padding: 0 15px;
+        }
+
+        .header {
+          padding: 40px 20px;
+        }
+
+        .controls {
+          grid-template-columns: 1fr;
+          gap: 20px;
+        }
+
+        .button-group {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .btn {
+          min-width: auto;
+        }
+
+        .tabs {
+          flex-wrap: wrap;
+        }
+
+        .tab {
+          flex: 1;
+          min-width: 120px;
+          text-align: center;
+        }
+
+        .tab-content {
+          padding: 20px;
+        }
+
+        .plot-content {
+          min-height: 400px;
+          padding: 20px;
+        }
+      }
+
+      /* Force Plotly charts to fill container */
+      .js-plotly-plot,
+      .plotly,
+      .plot-container div {
+        width: 100% !important;
+      }
+
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: var(--primary-gradient);
+        border-radius: 10px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--dark-gradient);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="header-content">
+          <h1>Quantum Particle Physics Simulator</h1>
+          <p class="subtitle">
+            CERN-Inspired Detector Modeling with IBM Quantum Integration
+          </p>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls-container">
+        <div class="controls">
+          <div class="control-group">
+            <label for="duration">Simulation Duration (seconds)</label>
+            <input
+              type="number"
+              id="duration"
+              value="1e-12"
+              step="1e-13"
+              min="1e-15"
+            />
+          </div>
+          <div class="control-group">
+            <label for="use_quantum">Enable Quantum Effects</label>
+            <select id="use_quantum">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+          <div class="control-group" id="ibm_token_group">
+            <label for="ibm_token">IBM Quantum API</label>
+            <input
+              type="password"
+              id="ibm_token"
+              placeholder="Enter IBM Quantum token for real hardware"
+            />
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button class="btn" onclick="createScenario()">
+            Create Scenario
+          </button>
+          <button
+            class="btn success"
+            onclick="runSimulation()"
+            id="runBtn"
+            disabled
+          >
+            Run Simulation
+          </button>
+          <button
+            class="btn quantum"
+            onclick="downloadReport()"
+            id="reportBtn"
+            disabled
+          >
+            Download Report
+          </button>
+          <button class="btn" onclick="resetSimulation()">Reset</button>
+        </div>
+
+        <div class="progress-bar" id="progressBar" style="display: none">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+
+      <div id="status"></div>
+
+      <div class="main-content">
+        <!-- Tabs -->
+        <div class="tabs">
+          <div class="tab active" onclick="showTab('overview')">Overview</div>
+          <div class="tab" onclick="showTab('trajectories')">
+            3D Trajectories
+          </div>
+          <div class="tab" onclick="showTab('energy')">Energy Analysis</div>
+          <div class="tab" onclick="showTab('quantum')">Quantum Effects</div>
+          <div class="tab" onclick="showTab('detector')">Detector Response</div>
+        </div>
+
+        <!-- Overview -->
+        <div id="overview" class="tab-content active">
+          <h2
+            style="
+              color: white;
+              margin-bottom: 30px;
+              font-size: 2.5em;
+              font-weight: 300;
+            "
+          >
+            Simulation Overview
+          </h2>
+          <p
+            style="
+              font-size: 1.1em;
+              margin-bottom: 30px;
+              color: rgba(255, 255, 255, 0.8);
+            "
+          >
+            This research-grade particle physics simulator integrates
+            cutting-edge quantum mechanics with classical particle dynamics:
+          </p>
+
+          <ul class="overview-list">
+            <li>
+              <strong>Relativistic Particle Dynamics</strong>: Electrons,
+              positrons, and muons with Lorentz transformations and special
+              relativity effects
+            </li>
+            <li>
+              <strong>Electromagnetic Interactions</strong>: Advanced Coulomb
+              forces, external electromagnetic fields, and particle-field
+              interactions
+            </li>
+            <li>
+              <strong>Quantum Effects</strong>: de Broglie wavelengths,
+              Heisenberg uncertainty principle, quantum superposition states
+            </li>
+            <li>
+              <strong>IBM Quantum Integration</strong>: Real quantum hardware
+              computations and hybrid quantum-classical algorithms
+            </li>
+            <li>
+              <strong>CERN-Inspired Detectors</strong>: Multi-layer detector
+              systems with realistic energy deposition and response modeling
+            </li>
+          </ul>
+
+          <div class="quantum-info">
+            <h3>🚀 IBM Quantum Integration</h3>
+            <p>Our simulator leverages IBM's quantum computing platform for:</p>
+            <ul style="margin-left: 20px; margin-top: 15px">
+              <li>Quantum spin measurements on real quantum hardware</li>
+              <li>Wave packet evolution simulations using quantum circuits</li>
+              <li>
+                Quantum-classical hybrid computations for particle interactions
+              </li>
+              <li>Quantum error correction and noise modeling</li>
+            </ul>
+            <p style="margin-top: 20px">
+              <em
+                >💡 Provide your IBM Quantum token for real hardware access, or
+                run in high-fidelity simulator mode.</em
+              >
+            </p>
+          </div>
+
+          <div id="particleInfo" class="particle-info"></div>
+        </div>
+
+        <!-- Trajectories -->
+        <div id="trajectories" class="tab-content">
+          <div class="plot-container">
+            <div class="plot-header">
+              🌟 3D Particle Trajectories and Detector Response
+            </div>
+            <div class="plot-content">
+              <div class="loading" id="trajectoriesLoading">
+                Click "Run Simulation" to generate beautiful 3D particle
+                trajectories
+              </div>
+              <div id="trajectoriesPlot"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Energy -->
+        <div id="energy" class="tab-content">
+          <div class="plot-container">
+            <div class="plot-header">⚡ Energy and Momentum Evolution</div>
+            <div class="plot-content">
+              <div class="loading" id="energyLoading">
+                Click "Run Simulation" to generate energy and momentum analysis
+              </div>
+              <div id="energyPlot"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quantum -->
+        <div id="quantum" class="tab-content">
+          <div class="plot-container">
+            <div class="plot-header">🔬 Quantum Effects Analysis</div>
+            <div class="plot-content">
+              <div class="loading" id="quantumLoading">
+                Click "Run Simulation" to generate quantum mechanics analysis
+              </div>
+              <div id="quantumPlot"></div>
+            </div>
+          </div>
+
+          <!-- QASM Runner UI -->
+          <div class="plot-container" style="margin-top: 20px">
+            <div class="plot-header">🧪 Run QASM Circuit</div>
+            <div class="plot-content">
+              <div class="control-group" style="max-width: 400px">
+                <label for="qasm_filename">Select QASM Circuit</label>
+                <select id="qasm_filename">
+                  <option value="spin_measure.qasm">spin_measure.qasm</option>
+                  <option value="wave_packet.qasm">wave_packet.qasm</option>
+                </select>
+              </div>
+              <div
+                class="control-group"
+                style="max-width: 400px; margin-top: 10px"
+              >
+                <label for="qasm_shots">Shots</label>
+                <input
+                  type="number"
+                  id="qasm_shots"
+                  value="1024"
+                  min="1"
+                  max="32768"
+                  step="1"
+                />
+              </div>
+              <div class="button-group" style="justify-content: flex-start">
+                <button class="btn quantum" onclick="runQasmCircuit()">
+                  Run QASM
+                </button>
+              </div>
+              <div
+                id="qasmStatus"
+                class="status info"
+                style="display: none"
+              ></div>
+              <div id="qasmPlot" style="margin-top: 10px"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detector -->
+        <div id="detector" class="tab-content">
+          <div class="plot-container">
+            <div class="plot-header">
+              🎯 Detector Response and Energy Deposition
+            </div>
+            <div class="plot-content">
+              <div class="loading" id="detectorLoading">
+                Click "Run Simulation" to generate detector response analysis
+              </div>
+              <div id="detectorPlot"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Global variables
+      let simulationData = null;
+      let currentScenario = null;
+
+      // Tab management
+      function showTab(tabName) {
+        // Hide all tab contents
+        document.querySelectorAll(".tab-content").forEach((content) => {
+          content.classList.remove("active");
+        });
+
+        // Remove active class from all tabs
+        document.querySelectorAll(".tab").forEach((tab) => {
+          tab.classList.remove("active");
+        });
+
+        // Show selected tab content
+        document.getElementById(tabName).classList.add("active");
+
+        // Add active class to clicked tab
+        event.target.classList.add("active");
+      }
+
+      // Show status messages
+      function showStatus(message, type = "info") {
+        const statusDiv = document.getElementById("status");
+        statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+          statusDiv.innerHTML = "";
+        }, 5000);
+      }
+
+      // Toggle IBM token visibility based on quantum selection
+      function toggleIbmTokenVisibility() {
+        const useQuantum =
+          document.getElementById("use_quantum").value === "true";
+        const tokenGroup = document.getElementById("ibm_token_group");
+        if (useQuantum) {
+          tokenGroup.style.display = "";
+        } else {
+          tokenGroup.style.display = "none";
+          document.getElementById("ibm_token").value = "";
+        }
+      }
+
+      // Create scenario via API
+      async function createScenario() {
+        try {
+          showStatus("Creating particle scenario...", "info");
+          const useQuantum =
+            document.getElementById("use_quantum").value === "true";
+          const ibmToken = document.getElementById("ibm_token").value || null;
+          const res = await fetch("/api/create_scenario", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              use_quantum: useQuantum,
+              ibm_token: ibmToken,
+              demo: true,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok || data.status !== "success") {
+            throw new Error(data.message || "Failed to create scenario");
+          }
+
+          currentScenario = data;
+          const particles = data.particles || {};
+          const particleInfoDiv = document.getElementById("particleInfo");
+          particleInfoDiv.innerHTML = Object.keys(particles)
+            .map((key) => {
+              const p = particles[key];
+              return `
+            <div class="particle-card">
+              <h4>${p.name.charAt(0).toUpperCase() + p.name.slice(1)}</h4>
+              <p><strong>Mass (kg):</strong> ${
+                p.mass.toExponential ? p.mass.toExponential(3) : p.mass
+              }</p>
+              <p><strong>Charge (C):</strong> ${p.charge}</p>
+              <p><strong>Initial Position:</strong> [${p.position
+                .map((v) => (v.toExponential ? v.toExponential(2) : v))
+                .join(", ")}]</p>
+              <p><strong>Initial Velocity:</strong> [${p.velocity
+                .map((v) => (v.toExponential ? v.toExponential(2) : v))
+                .join(", ")}]</p>
+              <p><strong>Status:</strong> <span style="color: #48dbfb;">Ready for simulation</span></p>
+            </div>`;
+            })
+            .join("");
+
+          document.getElementById("runBtn").disabled = false;
+          showStatus(
+            "Scenario created successfully! Ready to run simulation.",
+            "success"
+          );
+        } catch (err) {
+          showStatus(`Error creating scenario: ${err.message}`, "error");
+        }
+      }
+
+      // Helper to fetch a Plotly figure and render
+      async function fetchAndRenderPlot(plotType, divId, loadingId) {
+        try {
+          const res = await fetch(`/api/get_visualization/${plotType}`);
+          const data = await res.json();
+          if (!res.ok || data.status !== "success") {
+            throw new Error(data.message || `Failed to load ${plotType} plot`);
+          }
+          const fig = JSON.parse(data.plot);
+          if (loadingId) {
+            const loadingEl = document.getElementById(loadingId);
+            if (loadingEl) loadingEl.style.display = "none";
+          }
+          Plotly.newPlot(divId, fig.data || [], fig.layout || {}, {
+            responsive: true,
+          });
+        } catch (err) {
+          showStatus(`Error loading ${plotType} plot: ${err.message}`, "error");
+        }
+      }
+
+      // Run simulation via API
+      async function runSimulation() {
+        if (!currentScenario) {
+          showStatus("Please create a scenario first!", "error");
+          return;
+        }
+
+        const durationInput = document.getElementById("duration").value;
+        const duration = parseFloat(durationInput);
+        if (!Number.isFinite(duration) || duration <= 0) {
+          showStatus("Please enter a valid positive duration.", "error");
+          return;
+        }
+
+        showStatus("Running simulation...", "info");
+        document.getElementById("runBtn").disabled = true;
+
+        const progressBar = document.getElementById("progressBar");
+        const progressFill = document.getElementById("progressFill");
+        progressBar.style.display = "block";
+
+        let progress = 0; // client-side visual progress while waiting
+        const progressInterval = setInterval(() => {
+          progress = Math.min(95, progress + Math.random() * 10);
+          progressFill.style.width = progress + "%";
+        }, 250);
+
+        try {
+          const res = await fetch("/api/run_simulation", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ duration, fresh_detector: true }),
+          });
+          const data = await res.json();
+          if (!res.ok || data.status !== "success") {
+            throw new Error(data.message || "Simulation failed");
+          }
+
+          // Complete progress
+          clearInterval(progressInterval);
+          progressFill.style.width = "100%";
+          setTimeout(() => {
+            progressBar.style.display = "none";
+          }, 400);
+
+          simulationData = data.summary;
+
+          // Render plots from backend
+          await Promise.all([
+            fetchAndRenderPlot(
+              "trajectories",
+              "trajectoriesPlot",
+              "trajectoriesLoading"
+            ),
+            fetchAndRenderPlot("energy", "energyPlot", "energyLoading"),
+            fetchAndRenderPlot("detector", "detectorPlot", "detectorLoading"),
+            fetchAndRenderPlot("quantum", "quantumPlot", "quantumLoading"),
+          ]);
+
+          document.getElementById("reportBtn").disabled = false;
+          document.getElementById("runBtn").disabled = false;
+          showStatus("Simulation completed successfully! 🎉", "success");
+        } catch (err) {
+          clearInterval(progressInterval);
+          progressBar.style.display = "none";
+          showStatus(`Error running simulation: ${err.message}`, "error");
+          document.getElementById("runBtn").disabled = false;
+        }
+      }
+
+      // Remove placeholder simulationComplete and generatePlots; rendering happens after API call
+
+      // Run a QASM circuit via backend
+      async function runQasmCircuit() {
+        const useQuantum =
+          document.getElementById("use_quantum").value === "true";
+        if (!useQuantum) {
+          showStatus("Enable Quantum Effects to run QASM circuits.", "error");
+          return;
+        }
+
+        const filename = document.getElementById("qasm_filename").value;
+        const shotsVal =
+          parseInt(document.getElementById("qasm_shots").value, 10) || 1024;
+        const statusDiv = document.getElementById("qasmStatus");
+        statusDiv.style.display = "block";
+        statusDiv.className = "status info";
+        statusDiv.textContent = `Running ${filename} with ${shotsVal} shots...`;
+
+        try {
+          const res = await fetch("/api/run_qasm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ filename, shots: shotsVal }),
+          });
+          const data = await res.json();
+          if (!res.ok || data.status !== "success") {
+            throw new Error(data.message || "QASM run failed");
+          }
+
+          const counts = data.counts || {};
+          const states = Object.keys(counts);
+          const values = states.map((k) => counts[k]);
+          if (states.length === 0) {
+            statusDiv.className = "status error";
+            statusDiv.textContent = "No counts returned.";
+            return;
+          }
+
+          statusDiv.className = "status success";
+          statusDiv.textContent = `QASM completed: ${filename}`;
+
+          Plotly.newPlot(
+            "qasmPlot",
+            [
+              {
+                type: "bar",
+                x: states,
+                y: values,
+                marker: { color: "#feca57" },
+              },
+            ],
+            {
+              title: `QASM Result: ${filename}`,
+              xaxis: { title: "Bitstring" },
+              yaxis: { title: "Counts" },
+            },
+            { responsive: true }
+          );
+        } catch (err) {
+          statusDiv.className = "status error";
+          statusDiv.textContent = `Error: ${err.message}`;
+        }
+      }
+
+      // Download report via backend
+      async function downloadReport() {
+        if (!simulationData) {
+          showStatus("No simulation data available!", "error");
+          return;
+        }
+        try {
+          showStatus("Generating report...", "info");
+          const res = await fetch("/api/download_report");
+          if (!res.ok) throw new Error("Failed to download report");
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `particle_simulation_report_${Date.now()}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          showStatus("Report downloaded successfully! 📄", "success");
+        } catch (err) {
+          showStatus(`Error downloading report: ${err.message}`, "error");
+        }
+      }
+
+      // Generate report content
+      function generateReportContent() {
+        const timestamp = new Date().toLocaleString();
+        return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Particle Physics Simulation Report</title>
+          <style>
+            body { font-family: 'Inter', sans-serif; margin: 40px; line-height: 1.6; }
+            h1 { color: #667eea; }
+            .section { margin: 30px 0; padding: 20px; border-left: 4px solid #667eea; background: #f8f9fa; }
+          </style>
+        </head>
+        <body>
+          <h1>🔬 Particle Physics Simulation Report</h1>
+          <p><strong>Generated:</strong> ${timestamp}</p>
+          
+          <div class="section">
+            <h2>Simulation Parameters</h2>
+            <ul>
+              <li>Duration: ${
+                document.getElementById("duration").value
+              } seconds</li>
+              <li>Quantum Effects: ${
+                document.getElementById("use_quantum").value
+              }</li>
+              <li>IBM Quantum Integration: ${
+                document.getElementById("ibm_token").value
+                  ? "Enabled"
+                  : "Disabled"
+              }</li>
+            </ul>
+          </div>
+          
+          <div class="section">
+            <h2>Key Results</h2>
+            <ul>
+              <li>✅ 3D particle trajectories successfully computed</li>
+              <li>✅ Energy evolution analyzed with relativistic effects</li>
+              <li>✅ Quantum mechanical properties calculated</li>
+              <li>✅ Detector response modeled with high fidelity</li>
+            </ul>
+          </div>
+          
+          <div class="section">
+            <h2>Quantum Analysis Summary</h2>
+            <p>The simulation successfully integrated quantum mechanical effects including:</p>
+            <ul>
+              <li>de Broglie wavelength calculations</li>
+              <li>Heisenberg uncertainty principle applications</li>
+              <li>Wave-particle duality demonstrations</li>
+            </ul>
+          </div>
+          
+          <div class="section">
+            <h2>Detector Performance</h2>
+            <p>Multi-layer detector system showed excellent energy resolution and spatial precision matching CERN standards.</p>
+          </div>
+        </body>
+        </html>
+      `;
+      }
+
+      // Reset simulation (client + server)
+      async function resetSimulation() {
+        simulationData = null;
+        currentScenario = null;
+
+        try {
+          await fetch("/api/reset_simulation", { method: "POST" });
+        } catch (_) {}
+
+        // Reset controls
+        document.getElementById("duration").value = "1e-12";
+        document.getElementById("use_quantum").value = "true";
+        document.getElementById("ibm_token").value = "";
+        toggleIbmTokenVisibility();
+
+        // Reset buttons
+        document.getElementById("runBtn").disabled = true;
+        document.getElementById("reportBtn").disabled = true;
+
+        // Clear particle info
+        document.getElementById("particleInfo").innerHTML = "";
+
+        // Show loading messages
+        document.querySelectorAll(".loading").forEach((loading) => {
+          loading.style.display = "block";
+        });
+
+        // Clear plots
+        [
+          "trajectoriesPlot",
+          "energyPlot",
+          "quantumPlot",
+          "detectorPlot",
+        ].forEach((plotId) => {
+          document.getElementById(plotId).innerHTML = "";
+        });
+
+        // Hide progress bar
+        document.getElementById("progressBar").style.display = "none";
+        document.getElementById("progressFill").style.width = "0%";
+
+        showStatus(
+          "Simulation reset successfully! Create a new scenario to begin.",
+          "info"
+        );
+      }
+
+      // Initialize on page load
+      document.addEventListener("DOMContentLoaded", function () {
+        toggleIbmTokenVisibility();
+        document
+          .getElementById("use_quantum")
+          .addEventListener("change", toggleIbmTokenVisibility);
+        showStatus(
+          "🚀 Quantum Particle Physics Simulator initialized! Create a scenario to begin.",
+          "success"
+        );
+      });
+
+      // Add some interactive effects
+      document.querySelectorAll(".btn").forEach((btn) => {
+        btn.addEventListener("mouseenter", function () {
+          this.style.transform = "translateY(-2px) scale(1.05)";
+        });
+
+        btn.addEventListener("mouseleave", function () {
+          if (!this.disabled) {
+            this.style.transform = "translateY(0) scale(1)";
+          }
+        });
+      });
+
+      // Add particle animation to cards
+      document.addEventListener("DOMContentLoaded", function () {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.style.animation = "fadeIn 0.6s ease-out forwards";
+            }
+          });
+        });
+
+        document.querySelectorAll(".particle-card").forEach((card) => {
+          observer.observe(card);
+        });
+      });
+    </script>
+  </body>
+</html>

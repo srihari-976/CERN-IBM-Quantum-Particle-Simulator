@@ -1,0 +1,128 @@
+QUANTUM API AND PROJECT FILES OVERVIEW
+=====================================
+
+What the Quantum API is doing here
+----------------------------------
+- The app uses Qiskit to run quantum circuits for analysis tasks (spin measurement and wave packet distribution).
+- Circuits are defined either programmatically or via OpenQASM files stored in the qasm/ folder.
+- If IBM Quantum Runtime is available and enabled, circuits run on IBM backends through the Sampler API; otherwise they run locally on AerSimulator.
+- Results are returned as classical bitstring counts and visualized in the web UI.
+- The frontend calls the backend endpoint /api/run_qasm to submit a selected QASM file and number of shots; the backend executes and returns counts for plotting.
+
+High-level Data Flow (Quantum)
+------------------------------
+1) Frontend (templates/index.html) -> POST /api/create_scenario with use_quantum flag
+2) Backend (app.py) -> constructs ParticleSimulation(use_quantum=True/False)
+3) ParticleSimulation (simulation.py) -> sets quantum_enabled and constructs QuantumEffects
+4) QuantumEffects (quantum_effects.py) -> prepares Qiskit execution path (IBM Runtime if available, else AerSimulator)
+5) Frontend (Run QASM button) -> POST /api/run_qasm with { filename, shots }
+6) Backend (app.py) -> calls QuantumEffects.run_qasm_file(filename, shots)
+7) QuantumEffects -> loads qasm/filename, executes via _run_sampler, returns counts
+8) Frontend -> plots counts in Quantum tab
+
+How to enable/disable quantum
+-----------------------------
+- Web UI: "Enable Quantum Effects" = Yes to allow circuit execution and quantum plots. No disables circuit execution (uses classical analytic values only).
+- Programmatic: ParticleSimulation(use_quantum=True/False). When False, analyze_quantum_effects returns placeholders for circuit-derived values.
+
+File-by-file purpose and important terms
+---------------------------------------
+app.py (Flask API server)
+- Purpose: Exposes HTTP endpoints, orchestrates simulation lifecycle, returns plots and data.
+- Key endpoints:
+  - GET / -> HTML UI
+  - POST /api/create_scenario -> builds a new ParticleSimulation instance
+  - POST /api/run_simulation -> runs time evolution and records detector events
+  - GET /api/get_visualization/<plot_type> -> serves Plotly figures JSON
+  - GET /api/get_quantum_analysis -> returns quantum analysis per particle
+  - GET /api/get_detector_data -> returns detector hit summary
+  - GET /api/download_report -> returns CSV report
+  - POST /api/reset_simulation -> resets state
+  - POST /api/run_qasm -> executes an OpenQASM circuit and returns counts
+- Important terms: Flask, JSON, Plotly JSON encoding, background thread for simulation, IBM token passthrough, sanitized filename for QASM.
+
+simulation.py (Simulation engine)
+- Purpose: Advances particle states, applies forces, logs histories, triggers detector, aggregates summaries.
+- Important functions:
+  - run_simulation(duration): steps dynamics and records data
+  - analyze_quantum_effects(): returns de Broglie, Compton, uncertainty; conditionally runs circuits if quantum_enabled
+  - create_electron_positron_collision_scenario(demo): configures particles and detector for demo/default
+  - get_simulation_summary(): aggregates run metrics and per-particle stats
+- Important terms: dt (time step), steps, energy_history, momentum_history, gamma, quantum_enabled flag.
+
+quantum_effects.py (Quantum execution and analytics)
+- Purpose: Computes quantum-related analytics and runs Qiskit circuits (programmatic or QASM-based).
+- Important functions:
+  - de_broglie_wavelength, compton_wavelength, heisenberg_uncertainty_position_momentum
+  - quantum_spin_measurement(): loads spin_measure.qasm if present, else builds a 1-qubit circuit
+  - wave_packet_evolution(): loads wave_packet.qasm if present, else builds a 3-qubit circuit
+  - run_qasm_file(filename, shots): executes any QASM in qasm/
+- Execution internals:
+  - _load_qasm_circuit(filename): loads QuantumCircuit from qasm/ file
+  - _run_sampler(qc, shots):
+    - If IBM Runtime available: uses QiskitRuntimeService, Session, Sampler to run on selected backend
+    - Else: uses AerSimulator with transpile and returns get_counts()
+- Important terms: Qiskit, QuantumCircuit, OpenQASM, AerSimulator, QiskitRuntimeService, Session, Sampler, shots, counts.
+
+detector.py (CERN-inspired detector model)
+- Purpose: Cylindrical barrel + end-caps, hit calculation, energy deposition, event summary.
+- Important classes:
+  - DetectorLayer: geometry and intersection methods
+  - ParticleDetector: owns layers, detects hits, computes energy using Bethe–Bloch-like model, logs events
+- Important terms: z_position, radius, thickness, normal vector, end-caps, Bethe–Bloch-like dE/dx, energy_deposit, event summary (pandas DataFrame).
+
+electromagnetic_field.py (EM fields and forces)
+- Purpose: Provides uniform E and B fields and inter-particle Coulomb forces.
+- Important functions/classes:
+  - ElectromagneticField.lorentz_force(particle)
+  - CoulombForce.force_between_particles(p1, p2)
+- Important terms: Lorentz force q(E + v × B), Coulomb constant 1/(4πϵ0).
+
+particle.py (Relativistic particle model)
+- Purpose: Base particle class and specializations for electron, positron, muon.
+- Important properties/methods: speed, gamma (Lorentz factor), momentum (γmv), total_energy (γmc^2), kinetic_energy, apply_force (relativistic update), update_position, trajectory logging.
+- Important terms: c (speed of light), Lorentz factor, relativistic momentum, energy histories.
+
+visualization.py (Plotly plotting)
+- Purpose: Generates Plotly figures for trajectories, energy evolution, quantum analysis, detector response.
+- Important terms: Scatter3d, Bars, subplots, color scales, scene settings, layout.
+
+templates/index.html (Web UI)
+- Purpose: User interface for configuring and running simulations, viewing plots, and running QASM circuits.
+- Important elements:
+  - Controls: duration, Enable Quantum Effects, IBM token field, action buttons
+  - Tabs: Overview, 3D Trajectories, Energy, Quantum, Detector
+  - Quantum tab extras: QASM selector, shots input, Run QASM button, counts bar chart
+- Important functions (JS): createScenario, runSimulation, fetchAndRenderPlot, runQasmCircuit, showStatus, showTab.
+
+qasm/spin_measure.qasm (OpenQASM circuit)
+- Purpose: Single-qubit superposition (Hadamard) with measurement in Z; template for spin measurement.
+- Important terms: OPENQASM 2.0, include "qelib1.inc", qreg, creg, h, measure.
+
+qasm/wave_packet.qasm (OpenQASM circuit)
+- Purpose: Three-qubit superposition with simple entanglement chain (CX) and measurement; template for wave packet distribution.
+- Important terms: h gates, cx chain, multi-qubit measurement into classical register.
+
+README.md (Project documentation)
+- Purpose: Overall project description, features, setup, usage, quantum integration notes (including QASM behavior when enabled/disabled).
+
+requirements.txt (Python dependencies)
+- Purpose: Packages and versions (Flask, NumPy, SciPy, Plotly, Qiskit, IBM Runtime, pandas).
+
+particle_simulation.log (Runtime log)
+- Purpose: Stores logging output when running via main.py (file handler).
+
+apikey.json (Optional)
+- Purpose: Placeholder for key storage if used externally (IBM tokens are typically provided via UI or env).
+
+Glossary (Quantum-specific)
+---------------------------
+- OpenQASM: A textual representation format for quantum circuits.
+- QuantumCircuit: Qiskit in-memory circuit object; can be built programmatically or loaded from QASM.
+- Transpile: Qiskit process to optimize/adapt a circuit for a specific backend.
+- AerSimulator: Local simulator backend for executing circuits.
+- IBM Quantum Runtime: Managed execution service on IBM hardware/simulators via QiskitRuntimeService.
+- Session: Context for running jobs on a selected IBM backend.
+- Sampler: IBM Runtime primitive API returning samples (counts/quasi-distributions) from a circuit.
+- Shots: Number of circuit repetitions; higher shots reduce statistical noise.
+- Counts: Mapping from measured bitstrings (e.g., "010") to occurrence counts.
